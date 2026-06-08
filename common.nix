@@ -190,6 +190,8 @@ in
     wget
     gparted
     curl
+    fritzing
+    gromit-mpx
     # JupyterLab dans un environnement Python complet
     (python3.withPackages (ps: with ps; [
       jupyterlab
@@ -229,6 +231,7 @@ in
         Locked = true;
       };
       Bookmarks = [
+        { Title = "TableauNoir"; URL = "https://tableaunoir.github.io/"; Placement = "toolbar"; }
         { Title = "LeLivreScolaire"; URL = "https://lelivrescolaire.fr"; Placement = "toolbar"; }
         { Title = "Tracker";         URL = "https://opensourcephysics.github.io/tracker-online/index_ff.html"; Placement = "toolbar"; }
         { Title = "JupyterLab";      URL = "https://mybinder.org/v2/gh/physique-henriiv/fichiers_python/main?urlpath=lab"; Placement = "toolbar"; }
