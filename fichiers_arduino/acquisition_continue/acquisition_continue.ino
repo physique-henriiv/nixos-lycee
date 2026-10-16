@@ -1,5 +1,13 @@
+// Acquisition continue optimisée pour une cadence élevée :
+//  - 115200 bauds (12x plus rapide qu'à 9600)
+//  - pas de delay() : le rythme est limité par l'émission série
+//  - horodatage en microsecondes (micros())
+// Chaque ligne émise : temps_en_microsecondes,tension_en_V
+// NB : micros() déborde après ~71 min d'alimentation : arrêter avant.
+
 void setup() {
-  Serial.begin(9600); // précise le taux de transfert en bauds
+  Serial.begin(115200); // précise le taux de transfert en bauds
+  delay(10); // laisse l'ADC et le circuit d'entrée se stabiliser après le reset
   
   // Configuration des broches digitales en sortie
   pinMode(2, OUTPUT);
@@ -28,13 +36,11 @@ void loop() {
     commandeComplete = false;
   }
   
-  // Continuer l'envoi des valeurs analogiques (code original)
-  Serial.print(millis()); // Affiche le temps écoulé en millisecondes
-  Serial.print(","); // Affiche une virgule
-  float U; // Définit la variable réelle U
-  U = analogRead(0)*5./1023; // Calcule U à partir du mot numérique reçu par EA0
-  Serial.println(U); // Affiche U et revient à la ligne
-  delay(10); // Attend 10 ms
+  // Échantillon immédiat (pas de delay) : l'émission série règle la cadence
+  // (~1000 échantillons/s à 115200 bauds)
+  Serial.print(micros()); // temps en microsecondes
+  Serial.print(","); // séparateur
+  Serial.println(analogRead(0)*5./1023.); // tension en V
 }
 
 // Fonction pour lire les commandes entrantes sur le port série

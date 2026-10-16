@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, modulesPath, ... }:
 
 let
   # ---------------------------------------------------------------------------
@@ -74,13 +74,33 @@ let
   '';
 
   # ---------------------------------------------------------------------------
+  # Applications marimo : liste des notebooks avec noms d'affichage et ports
+  # ---------------------------------------------------------------------------
+  marimoApps = [
+    { file = "1GENSDecroissanceRadioactive.py"; name = "Décroissance radioactive";          port = 2718; }
+    { file = "ArduinoTempsReel.py";             name = "Arduino temps réel";                 port = 2719; }
+    { file = "Modelisation.py";                 name = "Modélisation";                       port = 2720; }
+    { file = "Statistiques_Arduino.py";         name = "Statistiques Arduino";               port = 2721; }
+    { file = "TGCircuit_RC_Arduino.py";         name = "Circuit RC — Arduino";              port = 2722; }
+    { file = "TGInterferences.py";              name = "Interférences";                     port = 2723; }
+    { file = "TGSimulationTitrage_corrige.py";  name = "Simulation titrage (corrigé)";      port = 2724; }
+    { file = "TGSimulationTitrage_eleves.py";   name = "Simulation titrage (élèves)";       port = 2725; }
+    { file = "TGSimulationTitrage.py";          name = "Simulation titrage";                port = 2726; }
+    { file = "TGTitrage_pHmetrique_Arduino.py"; name = "Titrage pH-métrique — Arduino";     port = 2727; }
+    { file = "SpectrophotometreUviline.py";      name = "Spectrophotomètre UV-visible";       port = 2728; }
+  ];
+
+  # ---------------------------------------------------------------------------
   # Contenu de /home/user
   # ---------------------------------------------------------------------------
   homeDir = pkgs.runCommand "home-user" { } ''
     mkdir -p $out
 
-    cp -r ${./fichiers_arduino} $out/fichiers_arduino
-    cp -r ${./fichiers_python}  $out/fichiers_python
+    # lib.cleanSource exclut .git (et .svn/.hg/CVS) des copies : le dépôt
+    # de sauvegarde de nixos-lycee ne doit jamais se retrouver sur la clé.
+    cp -r ${lib.cleanSource ./fichiers_arduino} $out/fichiers_arduino
+    cp -r ${lib.cleanSource ./fichiers_python}  $out/fichiers_python
+    cp -r ${lib.cleanSource ./fichiers_marimo}  $out/fichiers_marimo
 
     mkdir -p $out/Videos
     cp -r ${./videos_relatif}          $out/Videos/videos_relatif
@@ -90,7 +110,7 @@ let
     cp ${dconfDb} $out/.config/dconf/user
 
     mkdir -p $out/.config
-    cp -r ${./.config/helix} $out/.config/helix
+    cp -r ${./.config/ki}    $out/.config/ki
     cp -r ${./.config/kitty} $out/.config/kitty
     cp -r ${./.config/yazi}  $out/.config/yazi
 
@@ -129,11 +149,29 @@ let
     mkdir -p "$out/.local/share/jupyter/lab/user-settings/@jupyterlab/apputils-extension"
     echo '{ "fetchNews": "false", "checkForUpdates": false }' \
       > "$out/.local/share/jupyter/lab/user-settings/@jupyterlab/apputils-extension/announcements.jupyterlab-settings"
+
+    # ── Applications marimo : raccourcis bureau ──
+    mkdir -p $out/.local/share/applications
+    ${pkgs.lib.concatMapStrings (app: ''
+      cat > $out/.local/share/applications/marimo-${app.file}.desktop << EOF
+[Desktop Entry]
+Type=Application
+Name=${app.name}
+Comment=Lancer l'application marimo « ${app.name} »
+Exec=sh -c 'cd /home/user/fichiers_marimo && exec marimo run ${app.file} --port ${toString app.port}'
+Icon=python
+Categories=Education;Science;
+Terminal=false
+EOF
+    '') marimoApps}
+
   '';
 in
 {
   imports = [
-    <nixpkgs/nixos/modules/installer/cd-dvd/iso-image.nix>
+    # Module issu du même nixpkgs que le reste (modulesPath = nixos-26.05),
+    # et non du canal NIX_PATH du système hôte.
+    (modulesPath + "/installer/cd-dvd/iso-image.nix")
     ./common.nix
   ];
 

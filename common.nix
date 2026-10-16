@@ -2,6 +2,22 @@
 
 let
 
+  # Environnement Python dédié à marimo (applications de sciences physiques)
+  marimoEnv = pkgs.python3.withPackages (ps: with ps; [
+    marimo
+    numpy
+    scipy
+    lmfit
+    plotly
+    pyserial
+    anywidget
+  ]);
+
+  # Ki editor : version amont du flake officiel, sans patch. L'ISO live est
+  # destinée à des claviers AZERTY (pas d'ergo-l), le fork ergol-layout du
+  # poste de travail n'a donc pas lieu d'être ici.
+  ki-editor = (builtins.getFlake "github:ki-editor/ki-editor/86fdfdf0f8923867b54cb1626ed988f1e01d8483").packages.${pkgs.stdenv.hostPlatform.system}.default;
+
   kitty-wrapped = pkgs.symlinkJoin {
     name = "kitty";
     paths = [ pkgs.kitty ];
@@ -15,11 +31,11 @@ let
   jupyterPackagesExtra = ps: [
     (ps.buildPythonPackage rec {
       pname   = "jupyterlab-language-pack-fr-FR";
-      version = "4.5.post2";
+      version = "4.5.post3";
       format  = "wheel";
       src = pkgs.fetchurl {
-        url  = "https://files.pythonhosted.org/packages/aa/88/68557f4efb4adcc1d134b1f12bfd10d77a82104629737cbf9fd5120ae37b/jupyterlab_language_pack_fr_fr-4.5.post2-py2.py3-none-any.whl";
-        hash = "sha256-icn5B+90AtHef3CgGQL+CrhZ5Sp8DoRJg1gUyYFue2M=";
+        url  = "https://files.pythonhosted.org/packages/79/d2/b42fe09ae8001aa0ac56cdba19dafb25bbd44567b04361f6dcccf9055b39/jupyterlab_language_pack_fr_fr-4.5.post3-py2.py3-none-any.whl";
+        hash = "sha256-n2zp1OZLNn/whKIxOvKdatigLR0IAA8+bFPihW+poR8=";
       };
       doCheck = false;
     })
@@ -37,6 +53,10 @@ let
 in
 
 {
+  nixpkgs.overlays = [
+    (import ./tracker-pkg.nix)
+  ];
+
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
 
@@ -133,6 +153,11 @@ in
     exec-arg='''
   '';
 
+  # PDF : ouverture par défaut avec le visionneur de documents Xreader
+  # (fourni par Cinnamon) plutôt qu'avec LibreOffice Draw, qui s'enregistre
+  # lui aussi pour application/pdf et gagnait sinon l'association.
+  xdg.mime.defaultApplications."application/pdf" = "xreader.desktop";
+
   # Désactiver veille et verrouillage au niveau Cinnamon
   environment.etc."dconf/db/local.d/01-power".text = ''
     [org/cinnamon/desktop/session]
@@ -172,13 +197,15 @@ in
     EndSection
   '';
 
-  nixpkgs.config.allowUnfree = true;
+  # allowUnfree est passé à l'import du nixpkgs (default.nix) : l'instance
+  # pkgs étant externe à l'évaluation nixos, l'option nixpkgs.config
+  # provoquerait une assertion du module système.
 
   environment.systemPackages = with pkgs; [
     appimage-run
     kitty-wrapped
     (pkgs.writeShellScriptBin "x-terminal-emulator" ''exec kitty "$@"'')
-    helix
+    ki-editor
     yazi
     typst
     tinymist
@@ -192,6 +219,9 @@ in
     curl
     fritzing
     gromit-mpx
+    vlc
+    # marimo : environnement Python pour les applications de sciences physiques
+    marimoEnv
     # JupyterLab dans un environnement Python complet
     (python3.withPackages (ps: with ps; [
       jupyterlab
@@ -203,6 +233,10 @@ in
       # Widgets interactifs et backend matplotlib (%matplotlib widget)
       ipywidgets
       ipympl
+      # Graphiques interactifs Plotly (FigureWidget temps réel) : anywidget
+      # est requis par plotly 6 pour le rendu FigureWidget dans JupyterLab.
+      plotly
+      anywidget
       # Communication série Arduino
       pyserial
       # Utilitaires notebooks
@@ -210,6 +244,14 @@ in
       nbconvert
       # Interface en français + éditeur CSV (définis via PyPI ci-dessus)
     ] ++ jupyterPackagesExtra ps))
+    tracker
+    (pkgs.makeDesktopItem {
+      name = "tracker";
+      desktopName = "Tracker";
+      exec = "tracker";
+      categories = [ "Education" "Science" ];
+      comment = "Video Analysis and Modeling Tool";
+    })
   ];
 
   programs.firefox = {
@@ -230,26 +272,26 @@ in
         URL    = "https://henri-iv-beziers.mon-ent-occitanie.fr/";
         Locked = true;
       };
-      Bookmarks = [
-        { Title = "TableauNoir"; URL = "https://tableaunoir.github.io/"; Placement = "toolbar"; }
-        { Title = "LeLivreScolaire"; URL = "https://lelivrescolaire.fr"; Placement = "toolbar"; }
-        { Title = "Tracker";         URL = "https://opensourcephysics.github.io/tracker-online/index_ff.html"; Placement = "toolbar"; }
-        { Title = "JupyterLab";      URL = "https://mybinder.org/v2/gh/physique-henriiv/fichiers_python/main?urlpath=lab"; Placement = "toolbar"; }
-        { Title = "TI83";            URL = "https://maclasseti.fr/calculatrice";                                           Placement = "toolbar"; }
-        { Title = "numworks";        URL = "https://www.numworks.com/fr/emulateur/graphique/";                             Placement = "toolbar"; }
-        { Title = "mathGraph+";      URL = "https://casio-education.eu/fr/calculatrices-en-ligne";                        Placement = "toolbar"; }
-        { Title = "Geogebra";        URL = "https://www.geogebra.org/calculator";                                         Placement = "toolbar"; }
-        { Title = "Framacalc";       URL = "https://framacalc.org/abc/fr/";                                               Placement = "toolbar"; }
-        { Title = "Livechart";       URL = "https://nds.iaea.org/relnsd/vcharthtml/VChartHTML.html";                      Placement = "toolbar"; }
-        { Title = "PTable";          URL = "https://ptable.com/?lang=fr#Propriétés";                                      Placement = "toolbar"; }
-        { Title = "Ephemerides";     URL = "https://ssp.imcce.fr/forms";                                                  Placement = "toolbar"; }
-        { Title = "Labolycee";       URL = "https://labolycee.org";                                                       Placement = "toolbar"; }
-        { Title = "Chrono";          URL = "https://www.online-stopwatch.com/french/";                                    Placement = "toolbar"; }
-        { Title = "Molview";         URL = "https://app.molview.com";                                                     Placement = "toolbar"; }
-        { Title = "Chemix";          URL = "https://chemix.org";                                                          Placement = "toolbar"; }
-        { Title = "Cristallographie"; URL = "https://www.rruff.net";                                                      Placement = "toolbar"; }
-        { Title = "Phet";            URL = "https://phet.colorado.edu/fr/simulations/browse";                             Placement = "toolbar"; }
-        { Title = "Ostralo";         URL = "https://www.ostralo.net";                                                     Placement = "toolbar"; }
+      ManagedBookmarks = [
+        { name = "TableauNoir";      url = "https://tableaunoir.github.io/"; }
+        { name = "LeLivreScolaire";  url = "https://lelivrescolaire.fr"; }
+        { name = "Tracker";          url = "https://opensourcephysics.github.io/tracker-online/index_ff.html"; }
+        { name = "JupyterLab";       url = "https://mybinder.org/v2/gh/physique-henriiv/fichiers_python/main?urlpath=lab"; }
+        { name = "TI83";             url = "https://maclasseti.fr/calculatrice"; }
+        { name = "numworks";         url = "https://www.numworks.com/fr/emulateur/graphique/"; }
+        { name = "mathGraph+";       url = "https://casio-education.eu/fr/calculatrices-en-ligne"; }
+        { name = "Geogebra";         url = "https://www.geogebra.org/calculator"; }
+        { name = "Framacalc";        url = "https://framacalc.org/abc/fr/"; }
+        { name = "Livechart";        url = "https://nds.iaea.org/relnsd/vcharthtml/VChartHTML.html"; }
+        { name = "PTable";           url = "https://ptable.com/?lang=fr#Propriétés"; }
+        { name = "Ephemerides";      url = "https://ssp.imcce.fr/forms"; }
+        { name = "Labolycee";        url = "https://labolycee.org"; }
+        { name = "Chrono";           url = "https://www.online-stopwatch.com/french/"; }
+        { name = "Molview";          url = "https://app.molview.com"; }
+        { name = "Chemix";           url = "https://chemix.org"; }
+        { name = "Cristallographie"; url = "https://www.rruff.net"; }
+        { name = "Phet";             url = "https://phet.colorado.edu/fr/simulations/browse"; }
+        { name = "Ostralo";          url = "https://www.ostralo.net"; }
       ];
     };
   };
